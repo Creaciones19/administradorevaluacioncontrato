@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>DG - Resultados Contrato Cliente</title>
+<style>
+:root{--navy:#061b43;--navy2:#082b66;--blue:#0b55d4;--cyan:#42d8ff;--text:#10213d;--muted:#66758e;--danger:#d43b3b;--ok:#0b8a63;--border:#d8e7f6}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f4f8fc;color:var(--text)}
+.hero{background:linear-gradient(120deg,var(--navy),var(--navy2));color:#fff;padding:26px 24px}.hero-inner{max-width:1200px;margin:auto;display:flex;align-items:center;gap:22px}
+.logo{width:110px;max-height:80px;object-fit:contain;background:#fff;border-radius:14px;padding:8px}.kicker{color:var(--cyan);font-weight:800;letter-spacing:3px;font-size:13px}
+h1{margin:7px 0 4px}.wrap{max-width:1200px;margin:28px auto;padding:0 18px 60px}.card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 10px 30px rgba(4,35,79,.07);margin-bottom:20px}
+.login-card{max-width:520px;margin:40px auto}label{font-weight:700}input{width:100%;margin-top:7px;border:1px solid #bcd3eb;border-radius:10px;padding:12px;font:inherit}
+button{border:0;border-radius:10px;padding:12px 18px;font-weight:800;cursor:pointer;background:var(--blue);color:#fff}.secondary{background:var(--navy)}.light{background:#e9f3ff;color:var(--navy)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.login-grid{display:grid;gap:14px}.error{color:var(--danger);font-weight:700}.muted{color:var(--muted)}#panel{display:none}
+.topbar{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.stat{background:#fff;border:1px solid var(--border);border-radius:15px;padding:17px}.stat span{display:block;color:var(--muted);font-size:13px;margin-bottom:7px}.stat strong{font-size:27px;color:var(--navy)}
+.search{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:820px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #e5eef7}
+th{color:var(--navy);background:#f7fbff}.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#eaf4ff;color:var(--navy);font-size:12px;font-weight:800}.score{font-weight:900;color:var(--blue)}
+.modal{display:none;position:fixed;inset:0;z-index:100;background:rgba(3,18,45,.72);padding:22px;overflow-y:auto}.modal-box{max-width:950px;margin:20px auto;background:#fff;border-radius:18px;padding:22px}.modal-head{display:flex;justify-content:space-between;gap:12px}
+.answer{border:1px solid var(--border);border-left:6px solid var(--border);border-radius:12px;padding:14px;margin:12px 0}.answer.good{border-left-color:var(--ok);background:#f5fffb}.answer.bad{border-left-color:var(--danger);background:#fff7f7}.answer h4{margin:0 0 8px;line-height:1.4}.answer p{margin:5px 0}
+@media(max-width:760px){.hero-inner{flex-direction:column;align-items:flex-start}.stats{grid-template-columns:1fr}.search{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="hero"><div class="hero-inner"><img src="dgazul.png" class="logo" alt="DG"><div><div class="kicker">ADMINISTRACIÓN</div><h1>Resultados — Contrato Cliente</h1><p>Evaluación del Contrato para la Adquisición de Activos Inmobiliarios</p></div></div></header>
+<main class="wrap">
+<section id="login" class="card login-card"><h2>Acceso administrativo</h2><p class="muted">Ingresa con tu cuenta administrativa de Firebase.</p><div class="login-grid"><label>Correo<input id="email" type="email"></label><label>Contraseña<input id="password" type="password"></label><div class="actions"><button id="loginBtn">Entrar</button></div><div id="loginStatus"></div></div></section>
+<section id="panel">
+<div class="card topbar"><div><strong>Panel administrativo</strong><div id="adminEmail" class="muted"></div></div><div class="actions"><button id="refreshBtn" class="light">Actualizar</button><button id="logoutBtn" class="secondary">Cerrar sesión</button></div></div>
+<div class="stats"><div class="stat"><span>Total de exámenes</span><strong id="statTotal">0</strong></div><div class="stat"><span>Promedio</span><strong id="statAvg">0%</strong></div><div class="stat"><span>Último resultado</span><strong id="statLast">--</strong></div></div>
+<div class="card"><div class="search"><label>Buscar asesor<input id="searchInput" type="text" placeholder="Nombre o teléfono"></label><button id="clearBtn" class="light">Limpiar</button></div></div>
+<div class="card"><div id="loadStatus" class="muted">Cargando...</div><div class="table-wrap"><table><thead><tr><th>Asesor</th><th>Teléfono</th><th>Resultado</th><th>Aciertos</th><th>Fecha</th><th>Detalle</th></tr></thead><tbody id="resultsBody"></tbody></table></div></div>
+</section></main>
+<div id="modal" class="modal"><div class="modal-box"><div class="modal-head"><div><h2 id="detailName">Resultado</h2><div id="detailSummary" class="muted"></div></div><button id="closeModal" class="secondary">Cerrar</button></div><hr><div id="detailAnswers"></div></div></div>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+import{getFirestore,collection,getDocs}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+import{getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+const firebaseConfig={apiKey:"AIzaSyDLuSbQkJd0C3SIHGX9P8eIe3dVY2SKnxw",authDomain:"evaluacion-contrato-cliente.firebaseapp.com",projectId:"evaluacion-contrato-cliente",storageBucket:"evaluacion-contrato-cliente.firebasestorage.app",messagingSenderId:"350697173143",appId:"1:350697173143:web:ab9756db2aa5866878f9d2"};
+const app=initializeApp(firebaseConfig),db=getFirestore(app),auth=getAuth(app);
+const preguntas=[["¿Cuál es el objeto principal del contrato?","B"],
+["¿Qué pueden comprender los servicios de LA PRESTADORA?","C"],
+["¿Quién determina la aceptación, rechazo o modificación de una oferta cuando esa decisión corresponde a la fuente del activo?","D"],
+["¿Qué finalidad tiene el dictamen elaborado por LA PRESTADORA?","B"],
+["¿La documentación proporcionada al contratante será necesariamente la misma en todas las operaciones?","C"],
+["Si existe una contraoferta, modificación del precio o cambio sustancial en las condiciones iniciales, ¿qué procede?","C"],
+["¿Cómo se determina la forma de pago de la operación?","B"],
+["¿Dónde se establecen los montos, porcentajes, fechas, plazos e instrucciones de pago correspondientes a la operación?","D"],
+["Si durante la operación el banco, administradora o titular modifica una fecha, plazo o condición de pago, ¿cómo debe manejarse?","B"],
+["¿Todas las operaciones concluyen mediante el mismo instrumento jurídico?","C"],
+["¿Cuándo se considera concluida la operación de acuerdo con el contrato?","C"],
+["Cuando el activo cuenta con posesión desde el inicio y ésta forma parte de las condiciones bajo las cuales fue ofrecido, ¿qué comprende la conclusión?","B"],
+["Cuando el activo NO cuenta con posesión, ¿hasta dónde llega la obligación de LA PRESTADORA?","C"],
+["Si después de concluida la operación se requieren procedimientos judiciales, recuperación material, desocupación u otras actuaciones posteriores, ¿a quién corresponde continuarlas?","D"],
+["¿Qué contempla el contrato respecto de las asesorías posteriores a la conclusión de la operación?","C"],
+["¿Qué establece la Carta de Conclusión y Deslinde cuando resulte aplicable?","C"],
+["Una vez liquidada la totalidad del precio conforme al Anexo de Pagos y encontrándose la operación en proceso de formalización, ¿qué sucede si EL CONTRATANTE decide desistirse?","B"],
+["Si antes de concluir la operación surge una causa atribuible al banco, administradora, titular u otra circunstancia ajena a EL CONTRATANTE que impida definitivamente continuar, ¿qué establece el contrato?","D"],
+["¿Cómo se consideran los plazos comunicados cuando su cumplimiento depende de bancos, administradoras, titulares, fedatarios, autoridades, juzgados u otros terceros?","C"],
+["¿Qué documentos pueden integrarse al contrato como parte de la operación?","C"]];
+let resultados=[];
+const $=id=>document.getElementById(id);
+$("loginBtn").onclick=async()=>{try{$("loginStatus").textContent="Ingresando...";await signInWithEmailAndPassword(auth,$("email").value.trim(),$("password").value)}catch(e){console.error(e);$("loginStatus").className="error";$("loginStatus").textContent="No se pudo iniciar sesión. Revisa correo y contraseña."}};
+$("logoutBtn").onclick=()=>signOut(auth);
+onAuthStateChanged(auth,async user=>{if(user){$("login").style.display="none";$("panel").style.display="block";$("adminEmail").textContent=user.email||"";await cargar()}else{$("login").style.display="block";$("panel").style.display="none"}});
+async function cargar(){try{$("loadStatus").textContent="Cargando resultados...";const snap=await getDocs(collection(db,"resultadosContratoCliente"));resultados=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>fechaMs(b)-fechaMs(a));stats();filtrar();$("loadStatus").textContent=resultados.length+" examen(es) registrado(s)."}catch(e){console.error(e);$("loadStatus").className="error";$("loadStatus").textContent="No se pudieron leer los resultados. Revisa los permisos de Firestore."}}
+function fechaMs(x){if(x.fechaEnvio&&typeof x.fechaEnvio.toMillis==="function")return x.fechaEnvio.toMillis();return x.inicioLocal?(new Date(x.inicioLocal).getTime()||0):0}
+function fecha(x){const m=fechaMs(x);return m?new Date(m).toLocaleString("es-MX"):"Sin fecha"}
+function stats(){const n=resultados.map(x=>Number(x.calificacionPorcentaje)).filter(Number.isFinite);$("statTotal").textContent=resultados.length;$("statAvg").textContent=(n.length?Math.round(n.reduce((a,b)=>a+b,0)/n.length):0)+"%";$("statLast").textContent=resultados.length?(resultados[0].calificacionPorcentaje??0)+"%":"--"}
+$("searchInput").oninput=filtrar;$("clearBtn").onclick=()=>{$("searchInput").value="";filtrar()};$("refreshBtn").onclick=cargar;
+function filtrar(){const t=$("searchInput").value.trim().toLowerCase();pintar(resultados.filter(x=>(String(x.nombreCompleto||"")+" "+String(x.telefono||"")).toLowerCase().includes(t)))}
+function pintar(lista){$("resultsBody").innerHTML="";if(!lista.length){$("resultsBody").innerHTML='<tr><td colspan="6" class="muted">No hay resultados.</td></tr>';return}lista.forEach(x=>{const tr=document.createElement("tr");tr.innerHTML=`<td><strong>${esc(x.nombreCompleto||"Sin nombre")}</strong></td><td>${esc(x.telefono||"")}</td><td><span class="score">${x.calificacionPorcentaje??0}%</span></td><td>${x.aciertos??0}/${x.totalEvaluables??20}</td><td>${esc(fecha(x))}</td><td><button class="ver" data-id="${x.id}">Ver examen</button></td>`;$("resultsBody").appendChild(tr)});document.querySelectorAll(".ver").forEach(b=>b.onclick=()=>detalle(resultados.find(x=>x.id===b.dataset.id)))}
+function detalle(x){$("detailName").textContent=x.nombreCompleto||"Resultado";$("detailSummary").textContent=`${x.calificacionPorcentaje??0}% · ${x.aciertos??0}/${x.totalEvaluables??20} aciertos · ${fecha(x)}`;$("detailAnswers").innerHTML="";const r=x.respuestas||{};preguntas.forEach((p,i)=>{const n=i+1,a=r["q"+n]||"Sin responder",c=p[1],ok=a===c,d=document.createElement("div");d.className="answer "+(ok?"good":"bad");d.innerHTML=`<h4>${n}. ${esc(p[0])}</h4><p><strong>Respondió:</strong> ${esc(a)} ${ok?"✓":"✗"}</p>${ok?"":`<p><strong>Respuesta correcta:</strong> ${c}</p>`}`;$("detailAnswers").appendChild(d)});$("modal").style.display="block"}
+$("closeModal").onclick=()=>$("modal").style.display="none";$("modal").onclick=e=>{if(e.target.id==="modal")$("modal").style.display="none"};
+function esc(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+</script></body></html>
